@@ -1,12 +1,12 @@
-# AML Fraud-Network Agent: Graph-RAG and Text-to-SQL
+# AML Fraud Network Agent: Graph-RAG and Text-to-SQL
 
-A natural-language agent for **anti-money-laundering (AML) investigation**. Ask a question in plain English and it routes to the right backend: a **SQL database** for metrics and risk scores, a **Neo4j graph** for network relationships (laundering rings, sanctions exposure, synthetic-identity clusters), or **both**. Runs **fully locally** with no API keys via Ollama.
+A natural language agent for **anti-money-laundering (AML) investigation**. Ask a question in English and it routes to the right backend: a SQL database for metrics and risk scores, a **Neo4j graph** for network relationships (laundering rings, sanctions exposure, synthetic-identity clusters), or both. Runs fully locally with no API keys via Ollama.
 
 ---
 
 ## The Problem
 
-Financial-crime investigators face two kinds of question that no single database answers well:
+Financial crime investigators face two kinds of question that no single database answers well:
 
 - **Metric questions** such as "Which customers moved more than SAR 39,000, just under the SAR 40,000 reporting threshold?" map naturally to SQL.
 - **Network questions** such as "Show me the laundering ring this account sits in" or "Which accounts are within three hops of a sanctioned entity?" map naturally to a graph. They are impractical in SQL because they require traversing many relationships.
@@ -15,7 +15,7 @@ Real AML platforms (NICE Actimize, Quantexa, Featurespace) are built around exac
 
 ## Why a graph is actually needed here
 
-With 500+ accounts and 9,000 transactions, the relationships are **not** something a human can eyeball from a table. A money-laundering ring is a closed loop `A→B→C→D→A` hidden among thousands of legitimate transfers; a synthetic-identity cluster is a set of "different" customers quietly sharing a device or phone. Finding these means traversing the network, which is what graphs are for.
+With 500+ accounts and 9,000 transactions, the relationships are not something a human can eyeball from a table. A money-laundering ring is a closed loop `A→B→C→D→A` hidden among thousands of legitimate transfers; a synthetic-identity cluster is a set of "different" customers quietly sharing a device or phone. Finding these means traversing the network, which is what graphs are for.
 
 ## Seeded Fraud Patterns
 
@@ -140,6 +140,6 @@ streamlit run app/main.py
 
 ## Limitations
 
-- Mock data; this is an **architecture and skills demonstration**, not a production AML system.
-- Local-model Cypher generation can occasionally need prompt tuning for complex multi-hop questions; `qwen2.5:14b` handles these better than smaller models.
+- Mock data; this is an architecture and skills demonstration, not a production AML system.
+- Local model Cypher generation can occasionally need prompt tuning for complex multi-hop questions; `qwen2.5:14b` handles these better than smaller models.
 
