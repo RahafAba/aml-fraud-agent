@@ -1,0 +1,15 @@
+# LLM orchestration
+langchain
+langchain-community
+langchain-experimental
+langchain-ollama
+langchain-text-splitters
+
+# Databases
+sqlalchemy
+neo4j
+
+# App + config
+streamlit
+python-dotenv
+faker
