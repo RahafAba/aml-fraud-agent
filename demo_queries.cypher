@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 // 1. MONEY-LAUNDERING RING
 // A closed loop of transfers: money leaves an account and returns to it after
-// passing through several others. This is the strongest single screenshot.
+// passing through several others. 
 // The amount filter targets the seeded structured (~34k-39.5k) ring transfers,
 // which keeps the result a small, clean loop rather than a large incidental one.
 // ---------------------------------------------------------------------------
