@@ -143,6 +143,3 @@ streamlit run app/main.py
 - Mock data; this is an **architecture and skills demonstration**, not a production AML system.
 - Local-model Cypher generation can occasionally need prompt tuning for complex multi-hop questions; `qwen2.5:14b` handles these better than smaller models.
 
-## License
-
-MIT
