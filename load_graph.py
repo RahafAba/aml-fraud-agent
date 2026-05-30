@@ -1,7 +1,7 @@
 """Builds the AML knowledge graph in Neo4j directly from the SQL database.
 
 Unlike free-text extraction, an AML graph is constructed deterministically from
-structured records, which is how real systems work:
+structured records:
 
   (:Customer)-[:OWNS]->(:Account)
   (:Account)-[:SENT {amount, date}]->(:Account)
