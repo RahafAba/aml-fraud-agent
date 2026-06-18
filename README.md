@@ -1,6 +1,6 @@
 # AML Fraud Network Agent: Graph-RAG and Text-to-SQL
 
-A natural language agent for **anti-money-laundering (AML) investigation**. Ask a question in English and it routes to the right backend: a SQL database for metrics and risk scores, a **Neo4j graph** for network relationships (laundering rings, sanctions exposure, synthetic-identity clusters), or both. Runs fully locally with no API keys via Ollama.
+A natural language agent for **anti-money-laundering (AML) investigation**. Ask a question in English and it routes to the right backend: a SQL database for metrics and risk scores, a **Neo4j graph** for network relationships (laundering rings, sanctions exposure, synthetic-identity clusters), or both. Runs fully locally with no API keys via Ollama, using a **fine-tuned 3B model** for Cypher generation.
 
 ---
 
@@ -54,10 +54,11 @@ The mock data is generated with three real AML typologies deliberately planted i
 | Layer | Technology |
 |-------|-----------|
 | Language | Python |
-| LLM (local) | Ollama running `llama3.1` |
+| LLM (local) | Ollama running a fine-tuned `llama3.2:3b` |
 | Orchestration | LangChain |
 | Structured data | SQLite + SQLAlchemy (Text-to-SQL) |
 | Graph data | Neo4j (Cypher) |
+| Fine-tuning | Unsloth + TRL (QLoRA), GGUF export |
 | Mock data | Faker |
 | UI | Streamlit |
 
@@ -84,6 +85,49 @@ The mock data is generated with three real AML typologies deliberately planted i
 (:Customer)-[:SHARES_PHONE]->(:Customer)
 ```
 
+## Evaluation
+
+The agent has two failure surfaces: routing the question to the right backend, and generating a valid query. There is a labelled eval for each, runnable locally with no GPU.
+
+### Routing (`run_routing_eval.py`)
+
+20 labelled questions across SQL / GRAPH / HYBRID.
+
+| Route | Result |
+|-------|--------|
+| SQL | 8/8 correct |
+| GRAPH | 8/8 correct |
+| HYBRID | 0/4 — every hybrid question routed to GRAPH |
+
+Overall: **16/20 (80%)**. The model handles pure-SQL and pure-graph questions perfectly but never recognises a question that needs both a network traversal and a metric. This is the single systematic routing weakness.
+
+### Cypher generation (`run_cypher_eval.py`)
+
+6 questions run against the seeded graph, scored three ways: did it run, did it return rows, and (for questions with a known answer) did it return the right count. Ground-truth answers come from `eval_ground_truth.py`.
+
+## Fine-tuning: Text-to-Cypher
+
+The base 3B model produces invalid Cypher on complex multi-hop queries — hallucinated `exists(path)`, `distinct(x, y)`, SQL `SELECT ... FROM` inside Cypher, and stacked `RETURN` clauses instead of `UNION`. Prompt rules reduced but did not eliminate these.
+
+I fine-tuned `Llama-3.2-3B-Instruct` with QLoRA (Unsloth, free Colab T4 GPU) on ~530 synthetic schema-specific Text-to-Cypher pairs (`finetune/`), then quantised to GGUF and loaded it back into Ollama. After a first round, I did error analysis on the remaining failures, added targeted examples for the failing patterns (UNION, aggregation, ring + amount filter), and retrained.
+
+### Results (same 6-question Cypher eval)
+
+| Metric | Base 3B | Fine-tune v1 | Fine-tune v2 |
+|--------|---------|--------------|--------------|
+| Valid (ran) | 3/6 | 3/6 | **5/6** |
+| Non-empty (rows) | 2/6 | 3/6 | **5/6** |
+| Exact match | 0/1 | 1/1 | **2/2** |
+
+The multi-hop ring query the base model failed every time now generates valid Cypher. The one remaining failure is an over-generalisation (fusing a column projection with an aggregate), a known limit of small-model fine-tuning rather than a missing pattern.
+
+### Reproduce the fine-tune
+
+1. `python finetune/generate_dataset.py` — build the training pairs
+2. Run `finetune/train_cypher_lora.py` on a Colab T4 GPU (upload the data first)
+3. Download the resulting GGUF, register it with Ollama using the `Modelfile`
+4. Set `LOCAL_MODEL = "cypher-tuned"` in `src/agent_logic.py`, then run the evals
+
 ## Getting Started
 
 ### Prerequisites
@@ -94,7 +138,7 @@ The mock data is generated with three real AML typologies deliberately planted i
 ### Setup
 ```bash
 # 1. Local model (no API key, no cost)
-ollama pull llama3.1
+ollama pull llama3.2:3b
 
 # 2. Install
 git clone https://github.com/RahafAba/aml-fraud-agent.git
@@ -108,7 +152,10 @@ cp .env.example .env # edit with your Neo4j credentials
 python init_sql_db.py # generates enterprise.db with seeded patterns
 python load_graph.py # builds the Neo4j graph from that data
 
-# 5. Run
+# 5. (Optional) load the fine-tuned Cypher model into Ollama
+ollama create cypher-tuned -f Modelfile
+
+# 6. Run
 streamlit run app/main.py
 ```
 
@@ -121,8 +168,18 @@ streamlit run app/main.py
 │   └── agent_logic.py       # routing agent (SQL / GRAPH / HYBRID)
 ├── app/
 │   └── main.py              # Streamlit chat UI
+├── finetune/
+│   ├── generate_dataset.py  # builds synthetic Text-to-Cypher training pairs
+│   ├── train_cypher_lora.py # QLoRA fine-tune (Colab T4), exports GGUF
+│   ├── cypher_train.jsonl   # training data
+│   └── cypher_train_val.jsonl
 ├── init_sql_db.py           # generates the mock AML SQLite database
 ├── load_graph.py            # builds the Neo4j graph from the SQL data
+├── eval_questions.py        # labelled routing questions
+├── run_routing_eval.py      # routing accuracy + confusion matrix
+├── eval_ground_truth.py     # known-true answers from the seeded graph
+├── run_cypher_eval.py       # Cypher validity / correctness eval
+├── Modelfile                # loads the fine-tuned GGUF into Ollama
 ├── demo_queries.cypher      # ready-made investigation queries
 ├── requirements.txt
 ├── .env.example
@@ -137,9 +194,10 @@ streamlit run app/main.py
 - **Read-only SQL guard.** Generated SQL is rejected unless it is a single `SELECT` or `WITH` statement, as defense-in-depth over read-only database permissions.
 - **Cypher write-clause guard.** Generated Cypher is refused if it contains any write operation.
 - **Live schema introspection.** The Text-to-SQL chain reads the real schema rather than a hardcoded description.
+- **Measured** Routing and Cypher generation are both evaluated against labelled sets, and the fine-tune is justified by before/after numbers rather than a claim.
 
 ## Limitations
 
 - Mock data; this is an architecture and skills demonstration, not a production AML system.
-- Local model Cypher generation can occasionally need prompt tuning for complex multi-hop questions; `qwen2.5:14b` handles these better than smaller models.
-
+- The router does not yet detect HYBRID questions (combined network + metric) reliably, a known weakness surfaced by the routing eval.
+- The fine-tuned Cypher model still fails on some compositional queries (fusing a projection with an aggregate); this is a documented limit. 
