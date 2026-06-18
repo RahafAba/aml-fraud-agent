@@ -123,7 +123,7 @@ The multi-hop ring query the base model failed every time now generates valid Cy
 
 ### Reproduce the fine-tune
 
-1. `python finetune/generate_dataset.py` — build the training pairs
+1. `python finetune/generate_dataset.py` build the training pairs
 2. Run `finetune/train_cypher_lora.py` on a Colab T4 GPU (upload the data first)
 3. Download the resulting GGUF, register it with Ollama using the `Modelfile`
 4. Set `LOCAL_MODEL = "cypher-tuned"` in `src/agent_logic.py`, then run the evals
