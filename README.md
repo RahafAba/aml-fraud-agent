@@ -111,7 +111,7 @@ The base 3B model produces invalid Cypher on complex multi-hop queries — hallu
 
 I fine-tuned `Llama-3.2-3B-Instruct` with QLoRA (Unsloth, free Colab T4 GPU) on ~530 synthetic schema-specific Text-to-Cypher pairs (`finetune/`), then quantised to GGUF and loaded it back into Ollama. After a first round, I did error analysis on the remaining failures, added targeted examples for the failing patterns (UNION, aggregation, ring + amount filter), and retrained.
 
-### Results (same 6-question Cypher eval)
+### Results (same 6 question Cypher eval)
 
 | Metric | Base 3B | Fine-tune v1 | Fine-tune v2 |
 |--------|---------|--------------|--------------|
