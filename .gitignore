@@ -26,3 +26,5 @@ env/
 
 # Notebooks
 .ipynb_checkpoints/
+
+*.gguf
